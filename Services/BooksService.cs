@@ -32,13 +32,26 @@ namespace my_books.Services
                 Rate = book.IsRead ? book.Rate.Value : null,
                 Genre = book.Genre,
                 CoverUrl = book.CoverUrl,
-                Author = book.Author,
                 DateAdded = DateTime.Now,
                 PublisherId = book.PublisherId
             };
 
             _context.Books.Add(_book);
             _context.SaveChanges();
+
+            // Saving authors
+
+            foreach( int id in book.AuthorIds)
+            {
+                var _book_author = new Book_Author()
+                {
+                    BookId = _book.Id,
+                    AuthorId = id,
+                };
+
+                _context.Books_Authors.Add(_book_author);
+                _context.SaveChanges();
+            }
         }
 
         public Book GetBookById(int bookId)
@@ -59,7 +72,6 @@ namespace my_books.Services
                 _book.Rate = book.IsRead ? book.Rate.Value : null;
                 _book.Genre = book.Genre;
                 _book.CoverUrl = book.CoverUrl;
-                _book.Author = book.Author;
                 _book.DateAdded = DateTime.Now;
                 _book.PublisherId= book.PublisherId;
 
