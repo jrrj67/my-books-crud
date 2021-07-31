@@ -1,6 +1,8 @@
-﻿using System;
+﻿using my_books.Models;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Dynamic;
 
 namespace my_books.ViewModels
 {

@@ -1,9 +1,13 @@
 ﻿using my_books.Data;
 using my_books.Models;
+using my_books.Maps;
 using my_books.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
+using my_books.Utils;
 
 namespace my_books.Services
 {
@@ -16,9 +20,20 @@ namespace my_books.Services
             _context = context;
         }
 
-        public List<Book> GetAllBooks()
+        public List<ExpandoObject> GetAllBooks(int PageNumber, int PageSize)
         {
-            return _context.Books.ToList();
+            var books = _context.Books
+                .Include(books => books.Publisher)
+                .Skip((PageNumber - 1) * PageSize)
+                .Take(PageSize)
+                .ToList();
+
+            return new BookMapList(books).map();
+        }
+
+        public int GetTotalBooksRecords()
+        {
+            return _context.Books.Count();
         }
 
         public void AddBook(BookVM book)
@@ -40,26 +55,41 @@ namespace my_books.Services
             _context.SaveChanges();
 
             // Saving authors
-
-            foreach( int id in book.AuthorIds)
+            foreach(int id in book.AuthorIds)
             {
-                var _book_author = new Book_Author()
-                {
-                    BookId = _book.Id,
-                    AuthorId = id,
-                };
+                var authors = _context.Authors.FirstOrDefault(ba => ba.Id == id);
 
-                _context.Books_Authors.Add(_book_author);
-                _context.SaveChanges();
+                if(authors != null)
+                {
+                    var _book_author = new Book_Author()
+                    {
+                        BookId = _book.Id,
+                        AuthorId = id,
+                    };
+
+                    _context.Books_Authors.Add(_book_author);
+                    _context.SaveChanges();
+                }
+                else
+                {
+                    throw new Exception("Author does not exist.");
+                }
             }
         }
 
-        public Book GetBookById(int bookId)
+        public ExpandoObject GetBookById(int bookId)
         {
-            return _context.Books.FirstOrDefault(book => book.Id == bookId);
+            var book = _context.Books.Include(books => books.Publisher).FirstOrDefault(book => book.Id == bookId);
+            
+            if(book == null)
+            {
+                throw new Exception("No book found by provided Id.");
+            }
+
+            return new BookMap(book).map();
         }
 
-        public Book UpdateBookById(int bookId, BookVM book)
+        public ExpandoObject UpdateBookById(int bookId, BookVM book)
         {
             var _book = _context.Books.FirstOrDefault(b => b.Id == bookId);
 
@@ -73,15 +103,31 @@ namespace my_books.Services
                 _book.Genre = book.Genre;
                 _book.CoverUrl = book.CoverUrl;
                 _book.DateAdded = DateTime.Now;
-                _book.PublisherId= book.PublisherId;
+                _book.PublisherId = book.PublisherId;
 
                 _context.SaveChanges();
+
+                foreach (int id in book.AuthorIds)
+                {
+                    var book_Author = new Book_Author()
+                    {
+                        AuthorId = id,
+                        BookId = _book.Id,
+                    };
+
+                    _context.Books_Authors.Add(book_Author);
+                    _context.SaveChanges();
+                }
+            }
+            else
+            {
+               throw new Exception("No book found by provided Id.");
             }
 
-            return _book;
+            return new BookMap(_book).map();
         }
 
-        public Book DeleteBookById(int bookId)
+        public ExpandoObject DeleteBookById(int bookId)
         {
             var book = _context.Books.FirstOrDefault(b => b.Id == bookId);
 
@@ -90,8 +136,12 @@ namespace my_books.Services
                 _context.Books.Remove(book);
                 _context.SaveChanges();
             }
+            else
+            {
+                throw new Exception("No book found by provided Id.");
+            }
 
-            return book;
+            return new BookMap(book).map();
         }
     }
 }
